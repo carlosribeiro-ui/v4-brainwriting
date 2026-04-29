@@ -1,9 +1,10 @@
 {
-  "name": "v4-brainwriting-neon",
+  "name": "v4-brainwriting-supabase",
   "private": true,
   "type": "module",
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4",
     "@netlify/functions": "^3.1.8"
+    ,
+    "postgres": "^3.4.5"
   }
 }

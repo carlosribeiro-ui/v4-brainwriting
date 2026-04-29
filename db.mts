@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import postgres from "postgres";
 
 export const CLUSTER_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
 const VALID_VOTE_TYPES = new Set(["qw", "sb", "ms"]);
@@ -8,7 +8,11 @@ export function getSql() {
   if (!databaseUrl) {
     throw new Error("missing_env_DATABASE_URL");
   }
-  return neon(databaseUrl);
+  return postgres(databaseUrl, {
+    ssl: "require",
+    max: 1,
+    prepare: false
+  });
 }
 
 export function normalizeVotes(rawVotes: unknown) {

@@ -1,4 +1,4 @@
-# V4 Brainwriting + Postgres
+# V4 Brainwriting + Supabase
 
 ## Variável de ambiente no Netlify
 
