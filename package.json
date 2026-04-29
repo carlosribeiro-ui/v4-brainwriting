@@ -1,0 +1,9 @@
+{
+  "name": "v4-brainwriting-neon",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "@netlify/functions": "^3.1.8"
+  }
+}

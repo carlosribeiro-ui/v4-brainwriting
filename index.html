@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>V4 Brainwriting — Vote Agora</title>
+
+  <!-- ============================================================
+     DEPLOY
+     ============================================================
+     Esta versao usa Netlify Functions + Neon.
+     O frontend chama:
+     - /api/vote
+     - /api/results
+
+     Configure no Netlify:
+     - DATABASE_URL
+     ============================================================ -->
+
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --red: #B71C1C;
+      --red-mid: #E53935;
+      --red-light: #FFEBEE;
+      --red-dark: #7f0000;
+      --blue: #1565C0;
+      --blue-light: #E3F2FD;
+      --amber: #E65100;
+      --amber-light: #FFF3E0;
+      --green: #2E7D32;
+      --green-light: #E8F5E9;
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --surface2: #F5F4F0;
+      --border: rgba(0, 0, 0, 0.08);
+      --border2: rgba(0, 0, 0, 0.14);
+      --text: #1A1A18;
+      --text2: #5A5A56;
+      --text3: #9A9A94;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+    }
+
+    html {
+      background: var(--bg);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* ---- TOP BAR ---- */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .topbar-inner {
+      max-width: 640px;
+      margin: 0 auto;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      width: 28px;
+      height: 28px;
+      background: var(--red);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-mark span {
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .topbar-anon {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .anon-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    /* ---- SCREENS ---- */
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    /* ---- WELCOME ---- */
+    .welcome-hero {
+      text-align: center;
+      padding: 3rem 0 2rem;
+    }
+
+    .welcome-eyebrow {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--red);
+      background: var(--red-light);
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 1.5rem;
+    }
+
+    .welcome-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.15;
+      margin-bottom: 1rem;
+      letter-spacing: -0.5px;
+    }
+
+    .welcome-title span {
+      color: var(--red);
+    }
+
+    .welcome-desc {
+      font-size: 15px;
+      color: var(--text2);
+      line-height: 1.65;
+      max-width: 440px;
+      margin: 0 auto 2rem;
+    }
+
+    .welcome-stats {
+      display: flex;
+      justify-content: center;
+      gap: 2.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-num {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -1px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+
+    .welcome-anon-msg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--text2);
+      background: var(--green-light);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      margin-bottom: 2rem;
+      max-width: 380px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .btn-primary {
+      display: inline-block;
+      padding: 15px 48px;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: -0.2px;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .legend-block {
+      margin-top: 2.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .legend-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 10px;
+      text-align: center;
+    }
+
+    .legend-icon {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+
+    .legend-name {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .legend-desc {
+      font-size: 11px;
+      color: var(--text3);
+    }
+
+    .legend-item.qw .legend-name {
+      color: var(--red);
+    }
+
+    .legend-item.sb .legend-name {
+      color: var(--blue);
+    }
+
+    .legend-item.ms .legend-name {
+      color: var(--amber);
+    }
+
+    .btn-results-link {
+      display: block;
+      text-align: center;
+      margin-top: 1.5rem;
+      padding: 12px;
+      background: transparent;
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      color: var(--text2);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-results-link:hover {
+      background: var(--surface);
+    }
+
+    /* ---- PROGRESS ---- */
+    .progress-bar-wrap {
+      position: sticky;
+      top: 56px;
+      background: var(--bg);
+      padding: 12px 0 8px;
+      z-index: 90;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.25rem;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 0 16px;
+      max-width: 640px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .progress-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .progress-count {
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .progress-track {
+      height: 3px;
+      background: var(--border);
+      overflow: hidden;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    .progress-track-inner {
+      height: 100%;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--red);
+      border-radius: 2px;
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .dot-nav {
+      display: flex;
+      gap: 5px;
+      padding: 8px 16px 0;
+      max-width: 640px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+    }
+
+    .dot {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border2);
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text3);
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface);
+    }
+
+    .dot:hover {
+      border-color: var(--text2);
+      color: var(--text2);
+    }
+
+    .dot.active {
+      border-color: var(--text);
+      color: var(--text);
+      background: var(--surface);
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
+    }
+
+    .dot.voted-qw {
+      background: var(--red-light);
+      border-color: var(--red-mid);
+      color: var(--red);
+    }
+
+    .dot.voted-sb {
+      background: var(--blue-light);
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+
+    .dot.voted-ms {
+      background: var(--amber-light);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    /* ---- CLUSTER CARD ---- */
+    .cluster-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .cluster-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .cluster-badge {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      background: var(--red-light);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--red);
+    }
+
+    .cluster-meta {
+      flex: 1;
+    }
+
+    .cluster-eyebrow {
+      font-size: 10px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .cluster-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .cluster-body {
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .info-section {
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+    }
+
+    .info-tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 5px;
+    }
+
+    .info-text {
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .ideas-section {
+      background: var(--surface2);
+    }
+
+    .ideas-section .info-tag {
+      color: var(--text3);
+    }
+
+    .ideas-section .info-text {
+      color: var(--text2);
+    }
+
+    .worst-section {
+      background: #fff5f5;
+      border-left: 3px solid var(--red-mid);
+    }
+
+    .worst-section .info-tag {
+      color: var(--red);
+    }
+
+    .worst-section .info-text {
+      color: #6b1a1a;
+    }
+
+    .flip-section {
+      background: #f0faf0;
+      border-left: 3px solid #66BB6A;
+    }
+
+    .flip-section .info-tag {
+      color: var(--green);
+    }
+
+    .flip-section .info-text {
+      color: #1b4d1b;
+    }
+
+    /* ---- VOTE ---- */
+    .vote-area {
+      border-top: 1px solid var(--border);
+      padding: 1rem 1.25rem;
+      background: var(--surface);
+    }
+
+    .vote-prompt {
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 12px;
+    }
+
+    .vote-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .vote-btn {
+      padding: 14px 6px;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--border2);
+      cursor: pointer;
+      text-align: center;
+      background: transparent;
+      transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .vote-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .vote-btn:active {
+      transform: translateY(0);
+    }
+
+    .vote-btn.sel-qw {
+      background: var(--red-light);
+      border-color: var(--red-mid);
+    }
+
+    .vote-btn.sel-sb {
+      background: var(--blue-light);
+      border-color: var(--blue);
+    }
+
+    .vote-btn.sel-ms {
+      background: var(--amber-light);
+      border-color: var(--amber);
+    }
+
+    .vote-icon {
+      font-size: 22px;
+      margin-bottom: 4px;
+    }
+
+    .vote-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      display: block;
+    }
+
+    .vote-hint {
+      font-size: 10px;
+      color: var(--text3);
+      display: block;
+      margin-top: 2px;
+    }
+
+    .vote-btn.sel-qw .vote-name {
+      color: var(--red);
+    }
+
+    .vote-btn.sel-sb .vote-name {
+      color: var(--blue);
+    }
+
+    .vote-btn.sel-ms .vote-name {
+      color: var(--amber);
+    }
+
+    /* ---- NAV ---- */
+    .nav-row {
+      display: flex;
+      gap: 10px;
+      padding: 0 0 1.5rem;
+      margin-top: 4px;
+    }
+
+    .btn-back {
+      flex: 0 0 80px;
+      padding: 13px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border2);
+      background: var(--surface);
+      font-size: 14px;
+      color: var(--text2);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-back:hover {
+      background: var(--surface2);
+    }
+
+    .btn-back:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .btn-forward {
+      flex: 1;
+      padding: 13px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: var(--text);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .btn-forward:hover {
+      opacity: 0.88;
+    }
+
+    /* ---- CONFIRM ---- */
+    .confirm-wrap {
+      padding: 2rem 0 3rem;
+    }
+
+    .confirm-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .confirm-sub {
+      font-size: 14px;
+      color: var(--text2);
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .confirm-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+    }
+
+    .confirm-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+
+    .confirm-row-name {
+      font-size: 13px;
+      color: var(--text2);
+      flex: 1;
+    }
+
+    .confirm-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      flex-shrink: 0;
+    }
+
+    .badge-qw {
+      background: var(--red-light);
+      color: var(--red);
+    }
+
+    .badge-sb {
+      background: var(--blue-light);
+      color: var(--blue);
+    }
+
+    .badge-ms {
+      background: var(--amber-light);
+      color: var(--amber);
+    }
+
+    .badge-none {
+      background: var(--surface2);
+      color: var(--text3);
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 16px;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      letter-spacing: -0.2px;
+    }
+
+    .btn-submit:hover {
+      opacity: 0.88;
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-back-edit {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 13px;
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      font-size: 14px;
+      color: var(--text2);
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+    }
+
+    .btn-back-edit:hover {
+      background: var(--surface2);
+    }
+
+    /* ---- THANKS ---- */
+    .thanks-wrap {
+      text-align: center;
+      padding: 4rem 1rem 3rem;
+    }
+
+    .thanks-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--green-light);
+      border: 2px solid #66BB6A;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.25rem;
+    }
+
+    .thanks-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .thanks-sub {
+      font-size: 15px;
+      color: var(--text2);
+      line-height: 1.6;
+      max-width: 340px;
+      margin: 0 auto 2rem;
+    }
+
+    .btn-see-results {
+      display: inline-block;
+      padding: 14px 40px;
+      background: var(--text);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .btn-see-results:hover {
+      opacity: 0.88;
+    }
+
+    /* ---- RESULTS ---- */
+    .results-wrap {
+      padding: 2rem 0 3rem;
+    }
+
+    .results-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      letter-spacing: -0.5px;
+    }
+
+    .results-sub {
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 1.5rem;
+    }
+
+    .totals-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .total-card {
+      border-radius: var(--radius-sm);
+      padding: 14px 10px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+
+    .total-card.qw {
+      background: var(--red-light);
+    }
+
+    .total-card.sb {
+      background: var(--blue-light);
+    }
+
+    .total-card.ms {
+      background: var(--amber-light);
+    }
+
+    .total-num {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .total-card.qw .total-num {
+      color: var(--red);
+    }
+
+    .total-card.sb .total-num {
+      color: var(--blue);
+    }
+
+    .total-card.ms .total-num {
+      color: var(--amber);
+    }
+
+    .total-label {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 2px;
+    }
+
+    .result-cluster {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .rc-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .rc-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .rc-total {
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 40px;
+    }
+
+    .bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      justify-content: flex-end;
+    }
+
+    .bar-fill {
+      width: 100%;
+      border-radius: 3px 3px 0 0;
+      min-height: 3px;
+      transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .bar-fill.qw {
+      background: var(--red-mid);
+    }
+
+    .bar-fill.sb {
+      background: var(--blue);
+    }
+
+    .bar-fill.ms {
+      background: var(--amber);
+    }
+
+    .bar-num {
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .bar-num.qw {
+      color: var(--red);
+    }
+
+    .bar-num.sb {
+      color: var(--blue);
+    }
+
+    .bar-num.ms {
+      color: var(--amber);
+    }
+
+    .bar-tag {
+      font-size: 9px;
+      color: var(--text3);
+    }
+
+    .winner-pill {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      margin-top: 6px;
+    }
+
+    .winner-pill.qw {
+      background: var(--red-light);
+      color: var(--red);
+    }
+
+    .winner-pill.sb {
+      background: var(--blue-light);
+      color: var(--blue);
+    }
+
+    .winner-pill.ms {
+      background: var(--amber-light);
+      color: var(--amber);
+    }
+
+    .winner-pill.none {
+      background: var(--surface2);
+      color: var(--text3);
+    }
+
+    .btn-outline {
+      display: block;
+      width: 100%;
+      margin-top: 12px;
+      padding: 13px;
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      font-size: 14px;
+      color: var(--text2);
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+    }
+
+    .btn-outline:hover {
+      background: var(--surface2);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text3);
+      font-size: 14px;
+    }
+
+    .error-msg {
+      text-align: center;
+      padding: 2rem;
+      color: var(--red);
+      font-size: 13px;
+    }
+
+    @media (max-width: 420px) {
+      .welcome-title {
+        font-size: 26px;
+      }
+
+      .legend-block {
+        grid-template-columns: 1fr;
+      }
+
+      .vote-options {
+        gap: 6px;
+      }
+
+      .vote-btn {
+        padding: 12px 4px;
+      }
+
+      .vote-icon {
+        font-size: 18px;
+      }
+
+      .totals-grid {
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-logo">
+        <div class="logo-mark"><span>V4</span></div>
+        <span class="logo-text">Brainwriting</span>
+      </div>
+      <div class="topbar-anon">
+        <span class="anon-dot"></span>
+        Anônimo
+      </div>
+    </div>
+  </div>
+
+  <!-- WELCOME -->
+  <div id="screen-welcome" class="screen active">
+    <div class="container">
+      <div class="welcome-hero">
+        <span class="welcome-eyebrow">V4 Company · Abril 2026</span>
+        <h1 class="welcome-title">Qual aposta a<br><span>V4</span> deve fazer?</h1>
+        <p class="welcome-desc">Você fez parte da geração de ideias. Agora é hora de priorizar. Vote em cada cluster e
+          ajude a definir o foco da empresa.</p>
+        <div class="welcome-stats">
+          <div class="stat">
+            <div class="stat-num">8</div>
+            <div class="stat-label">Clusters</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num" id="total-voters-home">—</div>
+            <div class="stat-label">Votos</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">~3min</div>
+            <div class="stat-label">Para completar</div>
+          </div>
+        </div>
+        <div class="welcome-anon-msg">
+          <span class="anon-dot"></span>
+          100% anônimo — sem cadastro, sem identificação
+        </div>
+        <button class="btn-primary" onclick="startVoting()">Começar agora</button>
+        <div class="legend-block">
+          <div class="legend-item qw">
+            <div class="legend-icon">⚡</div>
+            <div class="legend-name">Quick Win</div>
+            <div class="legend-desc">Rápido e viável já</div>
+          </div>
+          <div class="legend-item sb">
+            <div class="legend-icon">🎯</div>
+            <div class="legend-name">Strategic Bet</div>
+            <div class="legend-desc">Médio prazo, risco calculado</div>
+          </div>
+          <div class="legend-item ms">
+            <div class="legend-icon">🚀</div>
+            <div class="legend-name">Moonshot</div>
+            <div class="legend-desc">Alta ambição, transformador</div>
+          </div>
+        </div>
+        <button class="btn-results-link" onclick="loadAndShowResults()">Ver resultados parciais →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOTING -->
+  <div id="screen-voting" class="screen">
+    <div class="progress-bar-wrap">
+      <div class="progress-meta">
+        <span class="progress-label" id="prog-label">Cluster 1 de 8</span>
+        <span class="progress-count" id="prog-count">0 votados</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-track-inner">
+          <div class="progress-fill" id="prog-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="dot-nav" id="dot-nav"></div>
+    </div>
+    <div class="container">
+      <div id="cluster-render"></div>
+      <div class="nav-row">
+        <button class="btn-back" id="btn-back" onclick="prevCluster()" disabled>←</button>
+        <button class="btn-forward" id="btn-forward" onclick="nextOrConfirm()">Próximo →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM -->
+  <div id="screen-confirm" class="screen">
+    <div class="container">
+      <div class="confirm-wrap">
+        <h2 class="confirm-title">Revisar e enviar</h2>
+        <p class="confirm-sub">Confira seus votos. Depois de confirmar, não será possível alterar.</p>
+        <div class="confirm-list" id="confirm-list"></div>
+        <button class="btn-submit" id="btn-submit" onclick="submitVotes()">Confirmar e enviar votação</button>
+        <button class="btn-back-edit" onclick="goToCluster(7)">← Voltar e editar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- THANKS -->
+  <div id="screen-thanks" class="screen">
+    <div class="container">
+      <div class="thanks-wrap">
+        <div class="thanks-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M5 13l4 4L19 7" stroke="#2E7D32" stroke-width="2.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </div>
+        <h2 class="thanks-title">Voto registrado!</h2>
+        <p class="thanks-sub">Sua participação foi contabilizada de forma anônima. Obrigado por ajudar a definir os
+          próximos passos da V4.</p>
+        <button class="btn-see-results" onclick="loadAndShowResults()">Ver resultados →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="screen-results" class="screen">
+    <div class="container">
+      <div class="results-wrap">
+        <h2 class="results-title">Resultados</h2>
+        <p class="results-sub" id="results-meta">Carregando...</p>
+        <div class="totals-grid">
+          <div class="total-card qw">
+            <div class="total-num" id="r-qw">—</div>
+            <div class="total-label">Quick Win</div>
+          </div>
+          <div class="total-card sb">
+            <div class="total-num" id="r-sb">—</div>
+            <div class="total-label">Strategic Bet</div>
+          </div>
+          <div class="total-card ms">
+            <div class="total-num" id="r-ms">—</div>
+            <div class="total-label">Moonshot</div>
+          </div>
+        </div>
+        <div id="results-clusters">
+          <div class="loading">Carregando votos...</div>
+        </div>
+        <button class="btn-outline" onclick="showScreen('screen-welcome')">← Voltar ao início</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── DATA ──────────────────────────────────────────────────────────────────────
+    const CLUSTERS = [
+      {
+        id: 1,
+        name: "Reconhecimento & Recompensas",
+        ideas: "Bônus semestrais por resultado, premiação anual com viagem, PDI com cardápio de experiências (massagem, voucher, manicure), People Destaque, subsídio para graduação e idiomas, reconhecimento público de tempo de casa.",
+        worst: "Reconhecimento é aleatório e opaco: os mesmos 3 investidores ganham sempre, sem critério visível. Quem mais entrega se sente invisível. Bônus chega 6 meses atrasado e sem contexto.",
+        flip: "Sistema 100% meritocrático, multi-formato e co-desenhado com cada investidor — financeiro, experiencial e público. Cada pessoa é vista de forma única, no momento certo."
+      },
+      {
+        id: 2,
+        name: "Engajamento & Cultura Ativa",
+        ideas: "V4 Games (vôlei, corrida, detetive em times), NRR Day voltado a integração real, competição mensal de entrega com votação, Looking Ahead + Rampage por área, Monthly do People com espaço de celebração.",
+        worst: "Eventos obrigatórios às sextas à tarde, corporativos e sem alma. O NRR Day virou reunião de resultados disfarçada. Ninguém quer ir — mas todos precisam aparecer.",
+        flip: "Ecossistema de cultura ativa onde cada investidor escolhe como participar. Eventos que misturam desafio real, celebração genuína e conexão humana. A V4 vira o lugar onde as pessoas querem estar."
+      },
+      {
+        id: 3,
+        name: "IA & Ferramentas para o Time",
+        ideas: "Claude Pro para todo o time, treinamentos semanais de IA, palestras no PH, construção de tecnologias proprietárias, V4 como referência em equilibrar IA e relações interpessoais.",
+        worst: "Cada área descobre IA por conta própria, sem ferramentas. Treinamentos são teóricos e inúteis. Liderança não usa IA, não encoraja, e o time fica paralisado sem direção.",
+        flip: "V4 como empresa-referência em IA aplicada: time inteiro treinado e ferramentado, líderes como catalisadores da adoção, gerando vantagem competitiva real e visível no mercado."
+      },
+      {
+        id: 4,
+        name: "Dados & Gestão de People",
+        ideas: "Centralização DP x WFM, dashboard por área com métricas-chave, avaliações contínuas por liderança, onboarding estendido técnico + relacional, decisões baseadas em dados por investidor.",
+        worst: "Dados fragmentados em 5 sistemas sem integração. Decisões no feeling. Gestores sem nenhuma visibilidade do time. Onboarding é um dia lendo manual — depois cada um se vira.",
+        flip: "People com o melhor sistema de dados do setor: decisões baseadas em evidência, gestores com visibilidade em tempo real, onboarding que genuinamente integra as pessoas."
+      },
+      {
+        id: 5,
+        name: "Desenvolvimento & Pipeline de Liderança",
+        ideas: "Programa de liderança +1 ano além do V4 Foundation, trilha para estagiários e juniores, liderança passar pelo operacional antes de assumir, todos os líderes aprofundados em IA.",
+        worst: "Promoção por tempo de casa sem critério. Líderes assumem sem preparo. Trilha de carreira existe no papel e nunca é seguida. Plano de desenvolvimento é segredo do RH.",
+        flip: "Pipeline de liderança como maior ativo intangível da V4: cada líder foi preparado, passou pelo operacional, carrega a cultura com intencionalidade e é referência no mercado."
+      },
+      {
+        id: 6,
+        name: "Marca Empregadora & Visibilidade",
+        ideas: "Publicações em veículos Tier 1, reputação nas redes para atrair talentos melhores, experiências que estimulem investidores a compartilhar, stands da RedHunters em workshops externos.",
+        worst: "V4 invisível como employer brand. Paga mais para contratar do que para reter. Ex-investidores não falam bem no mercado. Glassdoor em silêncio — o que é pior que reviews negativos.",
+        flip: "V4 como referência de employer brand no marketing digital: os investidores viram os melhores recrutadores, reconhecida amplamente como formadora dos melhores talentos do setor."
+      },
+      {
+        id: 7,
+        name: "Bem-estar & Ambiente Físico",
+        ideas: "Kit maternidade na gravidez e nascimento, política de maternidade estruturada, dia para trazer filhos à V4, clube do vinho, biblioteca na sala Tesla, estacionamento liberado, férias de 30 dias para PJs.",
+        worst: "Ambiente desconfortável, sem política de bem-estar real. Mães que engravidam sentem que precisam esconder. Nenhum benefício sinaliza cuidado com a pessoa fora do trabalho.",
+        flip: "V4 com as políticas mais humanas do setor: vida pessoal e profissional integradas intencionalmente, ambiente que transmite pertencimento, investidor sente que a empresa genuinamente cuida dele."
+      },
+      {
+        id: 8,
+        name: "Budget & Benefícios Estruturais",
+        ideas: "Budget estruturado para ações internas e eventos, comitê por área para distribuir budget, curso para quem é promovido a liderança, Hiring Experience, budget de onboarding e alimentação.",
+        worst: "Budget de People é zero ou discricionário. Cada ação precisa ser justificada individualmente. Iniciativas canceladas por falta de recurso. People sem assento na mesa financeira.",
+        flip: "People com orçamento estratégico gerido como investimento (não custo), co-desenhado com as áreas, ROI mensurável em retenção e performance, assento garantido nas decisões financeiras."
+      }
+    ];
+
+    // ── STATE ─────────────────────────────────────────────────────────────────────
+    let currentIdx = 0;
+    let sessionVotes = {}; // { clusterId: 'qw'|'sb'|'ms' }
+    let hasVoted = false;
+    const SUMMARY_CACHE_KEY = 'v4-brainwriting-summary-cache';
+    const SUMMARY_CACHE_TTL_MS = 30 * 1000;
+
+    // ── API ───────────────────────────────────────────────────────────────────────
+    const RESULTS_API = '/api/results';
+    const VOTE_API = '/api/vote';
+
+    function emptyTotals() {
+      return CLUSTERS.reduce((acc, cluster) => {
+        acc[cluster.id] = { qw: 0, sb: 0, ms: 0 };
+        return acc;
+      }, {});
+    }
+
+    function normalizeSummary(data) {
+      const votes = emptyTotals();
+      Object.entries(data?.votes || {}).forEach(([cid, counts]) => {
+        if (!votes[cid]) return;
+        votes[cid] = {
+          qw: Number(counts?.qw || 0),
+          sb: Number(counts?.sb || 0),
+          ms: Number(counts?.ms || 0)
+        };
+      });
+
+      return {
+        voters: Number(data?.voters || 0),
+        votes,
+        cachedAt: Number(data?.cachedAt || Date.now())
+      };
+    }
+
+    function readSummaryCache() {
+      try {
+        const raw = localStorage.getItem(SUMMARY_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.cachedAt) return null;
+        if (Date.now() - parsed.cachedAt > SUMMARY_CACHE_TTL_MS) return null;
+        return normalizeSummary(parsed);
+      } catch {
+        return null;
+      }
+    }
+
+    function writeSummaryCache(summary) {
+      try {
+        localStorage.setItem(SUMMARY_CACHE_KEY, JSON.stringify({
+          ...normalizeSummary(summary),
+          cachedAt: Date.now()
+        }));
+      } catch {
+        // noop
+      }
+    }
+
+    async function fetchResults() {
+      const r = await fetch(RESULTS_API, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!r.ok) throw new Error(`results_failed_${r.status}`);
+      return r.json();
+    }
+
+    async function createSubmission() {
+      const votes = Object.fromEntries(
+        Object.entries(sessionVotes).map(([cid, type]) => [String(cid), type])
+      );
+
+      const r = await fetch(VOTE_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ votes })
+      });
+      if (!r.ok) throw new Error(`submit_failed_${r.status}`);
+      return r.json();
+    }
+
+    function aggregateSubmissions(data) {
+      return normalizeSummary(data);
+    }
+
+    // ── UTILS ─────────────────────────────────────────────────────────────────────
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      window.scrollTo(0, 0);
+    }
+
+    function voteClass(type) {
+      return type ? 'badge-' + type : 'badge-none';
+    }
+    function voteLabel(type) {
+      const map = { qw: 'Quick Win', sb: 'Strategic Bet', ms: 'Moonshot' };
+      return type ? map[type] : 'sem voto';
+    }
+
+    // ── WELCOME ───────────────────────────────────────────────────────────────────
+    async function loadTotalVoters() {
+      const cached = readSummaryCache();
+      if (cached) {
+        document.getElementById('total-voters-home').textContent = cached.voters || 0;
+      }
+
+      try {
+        const d = aggregateSubmissions(await fetchResults());
+        writeSummaryCache(d);
+        document.getElementById('total-voters-home').textContent = d.voters || 0;
+      } catch (e) {
+        if (!cached) document.getElementById('total-voters-home').textContent = '—';
+      }
+    }
+
+    // ── VOTING ────────────────────────────────────────────────────────────────────
+    function startVoting() {
+      currentIdx = 0;
+      sessionVotes = {};
+      renderCluster();
+      updateProgress();
+      showScreen('screen-voting');
+    }
+
+    function renderCluster() {
+      const c = CLUSTERS[currentIdx];
+      const v = sessionVotes[c.id];
+      document.getElementById('cluster-render').innerHTML = `
+    <div class="cluster-card">
+      <div class="cluster-header">
+        <div class="cluster-badge">${c.id}</div>
+        <div class="cluster-meta">
+          <div class="cluster-eyebrow">Cluster ${c.id} de ${CLUSTERS.length}</div>
+          <div class="cluster-name">${c.name}</div>
+        </div>
+      </div>
+      <div class="cluster-body">
+        <div class="info-section ideas-section">
+          <div class="info-tag">Ideias coletadas no brainwriting</div>
+          <div class="info-text">${c.ideas}</div>
+        </div>
+        <div class="info-section worst-section">
+          <div class="info-tag">Pior versao possivel</div>
+          <div class="info-text">${c.worst}</div>
+        </div>
+        <div class="info-section flip-section">
+          <div class="info-tag">Versao ideal — o flip</div>
+          <div class="info-text">${c.flip}</div>
+        </div>
+      </div>
+      <div class="vote-area">
+        <div class="vote-prompt">Se a V4 investisse energia aqui, seria um:</div>
+        <div class="vote-options">
+          ${['qw', 'sb', 'ms'].map(t => `
+            <button class="vote-btn ${v === t ? 'sel-' + t : ''}" onclick="castVote(${c.id},'${t}')">
+              <div class="vote-icon">${t === 'qw' ? '⚡' : t === 'sb' ? '🎯' : '🚀'}</div>
+              <span class="vote-name">${voteLabel(t)}</span>
+              <span class="vote-hint">${t === 'qw' ? 'rápido e viável' : t === 'sb' ? 'médio prazo' : 'alto impacto'}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+    }
+
+    function castVote(cid, type) {
+      sessionVotes[cid] = (sessionVotes[cid] === type) ? undefined : type;
+      if (!sessionVotes[cid]) delete sessionVotes[cid];
+      renderCluster();
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const voted = Object.keys(sessionVotes).length;
+      const pct = (currentIdx / CLUSTERS.length * 100).toFixed(0);
+      document.getElementById('prog-label').textContent = `Cluster ${currentIdx + 1} de ${CLUSTERS.length}`;
+      document.getElementById('prog-count').textContent = `${voted} votado${voted !== 1 ? 's' : ''}`;
+      document.getElementById('prog-fill').style.width = pct + '%';
+
+      const dotsEl = document.getElementById('dot-nav');
+      dotsEl.innerHTML = CLUSTERS.map((c, i) => {
+        const v = sessionVotes[c.id];
+        let cls = '';
+        if (i === currentIdx) cls = 'active';
+        else if (v) cls = 'voted-' + v;
+        return `<div class="dot ${cls}" onclick="goToCluster(${i})">${i + 1}</div>`;
+      }).join('');
+
+      const btnBack = document.getElementById('btn-back');
+      const btnFwd = document.getElementById('btn-forward');
+      btnBack.disabled = currentIdx === 0;
+      btnFwd.textContent = currentIdx === CLUSTERS.length - 1 ? 'Revisar →' : 'Próximo →';
+    }
+
+    function goToCluster(idx) {
+      currentIdx = idx;
+      renderCluster();
+      updateProgress();
+      showScreen('screen-voting');
+    }
+
+    function prevCluster() {
+      if (currentIdx > 0) { currentIdx--; renderCluster(); updateProgress(); }
+    }
+
+    function nextOrConfirm() {
+      if (currentIdx < CLUSTERS.length - 1) {
+        currentIdx++;
+        renderCluster();
+        updateProgress();
+        window.scrollTo(0, 0);
+      } else {
+        buildConfirm();
+        showScreen('screen-confirm');
+      }
+    }
+
+    // ── CONFIRM ───────────────────────────────────────────────────────────────────
+    function buildConfirm() {
+      const list = document.getElementById('confirm-list');
+      list.innerHTML = CLUSTERS.map(c => {
+        const v = sessionVotes[c.id];
+        return `<div class="confirm-row">
+      <span class="confirm-row-name">${c.id}. ${c.name}</span>
+      <span class="confirm-badge ${voteClass(v)}">${voteLabel(v)}</span>
+    </div>`;
+      }).join('');
+    }
+
+    async function submitVotes() {
+      const btn = document.getElementById('btn-submit');
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+      try {
+        await createSubmission();
+        const cached = readSummaryCache();
+        if (cached) {
+          const next = normalizeSummary(cached);
+          Object.entries(sessionVotes).forEach(([cid, type]) => {
+            if (next.votes[cid] && type) next.votes[cid][type] += 1;
+          });
+          next.voters += 1;
+          writeSummaryCache(next);
+        }
+        hasVoted = true;
+        showScreen('screen-thanks');
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Confirmar e enviar votação';
+        alert('Erro ao enviar. Verifique sua conexão e tente novamente.');
+      }
+    }
+
+    // ── RESULTS ───────────────────────────────────────────────────────────────────
+    function renderResults(data, isCached = false) {
+      const voters = data.voters || 0;
+      document.getElementById('results-meta').textContent =
+        `${voters} voto${voters !== 1 ? 's' : ''} registrado${voters !== 1 ? 's' : ''}${isCached ? ' · cache local' : ' · atualizado agora'}`;
+
+      let totalQW = 0, totalSB = 0, totalMS = 0;
+      CLUSTERS.forEach(c => {
+        const v = data.votes[c.id] || {};
+        totalQW += v.qw || 0;
+        totalSB += v.sb || 0;
+        totalMS += v.ms || 0;
+      });
+      document.getElementById('r-qw').textContent = totalQW;
+      document.getElementById('r-sb').textContent = totalSB;
+      document.getElementById('r-ms').textContent = totalMS;
+
+      const maxVal = Math.max(...CLUSTERS.map(c => {
+        const v = data.votes[c.id] || {};
+        return Math.max(v.qw || 0, v.sb || 0, v.ms || 0);
+      }), 1);
+
+      document.getElementById('results-clusters').innerHTML = CLUSTERS.map(c => {
+        const v = data.votes[c.id] || { qw: 0, sb: 0, ms: 0 };
+        const total = (v.qw || 0) + (v.sb || 0) + (v.ms || 0);
+        const maxH = 34;
+        const h = (n) => Math.round(((n || 0) / maxVal) * maxH);
+
+        let winner = 'none', winLabel = 'sem votos';
+        if (total > 0) {
+          const m = Math.max(v.qw || 0, v.sb || 0, v.ms || 0);
+          const winners = ['qw', 'sb', 'ms'].filter(t => (v[t] || 0) === m);
+          if (winners.length === 1) { winner = winners[0]; winLabel = voteLabel(winner); }
+          else { winner = 'tie'; winLabel = 'empate'; }
+        }
+
+        return `<div class="result-cluster">
+        <div class="rc-top">
+          <span class="rc-name">${c.id}. ${c.name}</span>
+          <span class="rc-total">${total}v</span>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:6px;height:44px;">
+          ${['qw', 'sb', 'ms'].map(t => `
+            <div class="bar-col">
+              <span class="bar-num ${t}">${v[t] || 0}</span>
+              <div class="bar-fill ${t}" style="height:${h(v[t])}px;width:100%;min-height:3px;"></div>
+            </div>
+          `).join('')}
+          <div style="font-size:9px;color:var(--text3);align-self:flex-end;margin-left:2px;">
+            <div>QW</div><div>SB</div><div>MS</div>
+          </div>
+        </div>
+        <span class="winner-pill ${winner}">${winLabel}</span>
+      </div>`;
+      }).join('');
+    }
+
+    async function loadAndShowResults() {
+      showScreen('screen-results');
+      const cached = readSummaryCache();
+      if (cached) {
+        renderResults(cached, true);
+      } else {
+        document.getElementById('results-meta').textContent = 'Carregando...';
+        document.getElementById('results-clusters').innerHTML = '<div class="loading">Carregando votos...</div>';
+      }
+
+      try {
+        const data = aggregateSubmissions(await fetchResults());
+        writeSummaryCache(data);
+        renderResults(data, false);
+      } catch (e) {
+        if (!cached) {
+          document.getElementById('results-clusters').innerHTML =
+            '<div class="error-msg">Erro ao carregar dados. Verifique sua conexão.</div>';
+          document.getElementById('results-meta').textContent = 'Erro ao carregar';
+        }
+      }
+    }
+
+    // ── INIT ──────────────────────────────────────────────────────────────────────
+    loadTotalVoters();
+  </script>
+</body>
+
+</html>
